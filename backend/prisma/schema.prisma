@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String
+  name              String
+  role              Role               @default(MEMBER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  committees        CommitteeMember[]
+  attendances       Attendance[]
+}
+
+model Committee {
+  id                String             @id @default(cuid())
+  name              String             @unique
+  description       String?
+  meetingDay        String             // e.g., "Monday", "Tuesday", etc.
+  meetingTime       String             // e.g., "14:00"
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  members           CommitteeMember[]
+  meetings          Meeting[]
+}
+
+model CommitteeMember {
+  id                String             @id @default(cuid())
+  userId            String
+  committeeId       String
+  joinedDate        DateTime           @default(now())
+  isActive          Boolean            @default(true)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  committee         Committee          @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, committeeId])
+}
+
+model Meeting {
+  id                String             @id @default(cuid())
+  committeeId       String
+  date              DateTime
+  status            MeetingStatus      @default(SCHEDULED)
+  notes             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  committee         Committee          @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  attendances       Attendance[]
+  
+  @@index([committeeId, date])
+}
+
+model Attendance {
+  id                String             @id @default(cuid())
+  meetingId         String
+  userId            String
+  status            AttendanceStatus
+  markedAt          DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  updateCount       Int                @default(0)
+  meeting           Meeting            @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([meetingId, userId])
+  @@index([userId])
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LEGAL_LATE
+  LATE
+  LEAVE
+  ABSENT
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
